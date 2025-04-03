@@ -1,0 +1,17 @@
+{
+    "manifest_version": 3,
+    "name": "Gmail AI Assistant",
+    "version": "1.0",
+    "description": "Fetches recent emails, suggests AI-powered replies, and allows manual editing before sending.",
+    "permissions": ["identity", "storage", "activeTab", "scripting"],
+    "host_permissions": ["https://mail.google.com/*"],
+    "action": {
+      "default_popup": "popup/popup.html",
+      "default_icon": "icon.png"
+    },
+    "background": {
+  "service_worker": "background/background.js",
+  "type": "module"
+}  
+}
+  
