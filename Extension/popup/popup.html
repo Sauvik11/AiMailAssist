@@ -11,7 +11,7 @@
     <style>
         
         body {
-            min-width: 400px !important;
+            min-width: 600px !important;
             min-height: 400px;
             overflow-x: hidden;/* Adjust height */
             padding: 10px;
@@ -25,30 +25,33 @@
         .active-tab {
             display: block;
         }
-        #table-container {
-    max-height: 400px; /* Adjust height as needed */
-    overflow-y: auto;  /* Enables vertical scrolling */
-    border: 1px solid #ddd; /* Optional: Adds border */
-}
+     
 
+        #table-container {
+    min-height: 200px; /* Adjust based on expected data */
+    max-height: 200px;
+     /* Prevents table from shifting layout */
+}
 table {
+    table-layout: fixed;
     width: 100%;
     border-collapse: collapse;
 }
 
-th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
+td {
+    word-break: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
-th {
-    background-color: #f4f4f4;
-    position: sticky;
-    top: 0;
-    z-index: 2; /* Keeps headers visible while scrolling */
+th:nth-child(2), td:nth-child(2) {
+    width: 25%;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-            </style>
+</style>
     
 </head>
 <body class="container mt-3">

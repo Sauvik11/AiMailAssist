@@ -1,7 +1,9 @@
+from dotenv import load_dotenv
 from flask import Flask, jsonify,request
 import base64
 from email.mime.text import MIMEText
 import os
+import json
 import pickle
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -14,7 +16,7 @@ import pymysql
 
 from flask_sqlalchemy import SQLAlchemy
 
-
+load_dotenv()
 
 
 
@@ -27,7 +29,7 @@ CORS(app)
 # Define the required Gmail API scope
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly","https://www.googleapis.com/auth/gmail.send", "https://www.googleapis.com/auth/gmail.modify"]
 
-AI_Client_API_KEY = "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" #openrouter API key
+AI_Client_API_KEY = os.getenv("Ai_API_KEY") #openrouter API key
 
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/email_assist'
@@ -59,13 +61,29 @@ def authenticate_gmail():
     if os.path.exists("token.pickle"):
         with open("token.pickle", "rb") as token:
             creds = pickle.load(token)
-
+    credentials_data = {
+    "installed": {
+        "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+        "project_id": os.getenv("GOOGLE_PROJECT_ID"),
+        "auth_uri": os.getenv("GOOGLE_AUTH_URI"),
+        "token_uri": os.getenv("GOOGLE_TOKEN_URI"),
+        "auth_provider_x509_cert_url": os.getenv("GOOGLE_CERT_URL"),
+        "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+        "redirect_uris": [os.getenv("GOOGLE_REDIRECT_URI")]
+    }
+    }
+    print(credentials_data,"credentials_data")
+    # Save credentials as a temporary JSON file
+    with open("credentials_temp.json", "w") as temp_file:
+        json.dump(credentials_data, temp_file)
     # If no valid credentials, authenticate user
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file("credentials_temp.json", SCOPES)
+            # Remove temporary file after use
+            os.remove("credentials_temp.json")
             creds = flow.run_local_server(port=0)
 
         # Save credentials for future use
@@ -155,7 +173,7 @@ def analyze_email_with_AI(subject, body):
     Category: [Category Name]
     Reply: [Generated Reply]
     """
-
+    print(AI_Client_API_KEY, "AI_Client_API_KEY")
     headers = {"Authorization": f"Bearer {AI_Client_API_KEY}", "X-Title": "Gmail AI Assistant",
         "Content-Type": "application/json"}
     payload = {
@@ -163,9 +181,9 @@ def analyze_email_with_AI(subject, body):
         "messages": [{"role": "system", "content": prompt}],
         "temperature": 0.7,
     }
-
+    
     response = requests.post("https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers)
-   
+    
     if response.status_code == 200:
         ai_response = response.json()["choices"][0]["message"]["content"]
         

@@ -138,23 +138,30 @@ function sendReply(emailId) {
     .catch(error => console.error("Error sending email:", error));
 }
 function fetchEmailLogs() {
-    fetch("http://127.0.0.1:5000/email-logs") // Update if API runs elsewhere
+    let tableBody = document.getElementById("email-logs");
+    let tableContainer = document.getElementById("table-container");
+
+    tableContainer.style.visibility = "hidden"; // Hide while updating
+
+    fetch("http://127.0.0.1:5000/email-logs")
     .then(response => response.json())
     .then(data => {
-        
-        let tableBody = document.getElementById("email-logs");
-        tableBody.innerHTML = ""; // Clear existing data
-        
+        tableBody.innerHTML = ""; // Clear existing rows
+
         data.forEach(log => {
-            let row = `<tr>
+            let row = document.createElement("tr");
+            row.innerHTML = `
                 <td>${log.subject}</td>
                 <td>${log.sender_email}</td>
                 <td>${log.received_time}</td>
                 <td>${log.sent_time}</td>
-            </tr>`;
-            tableBody.innerHTML += row;
+            `;
+            tableBody.appendChild(row);
         });
+
+        tableContainer.style.visibility = "visible"; // Show when ready
     })
     .catch(error => console.error("Error fetching email logs:", error));
 }
+
 
