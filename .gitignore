@@ -1,3 +1,4 @@
 
 credentials_temp.json
 .env
+.venv/
