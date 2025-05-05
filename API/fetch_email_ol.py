@@ -2,12 +2,16 @@ import requests
 from auth import get_token, refresh_access_token
 from flask_sqlalchemy import SQLAlchemy
 import pymysql
-from flask import Flask, jsonify, request, session, redirect
+from flask import Flask, jsonify, request, session, redirect, render_template,send_file
 from flask_migrate import Migrate
 from datetime import datetime
 from dateutil import parser
 import pytz
 import os
+import pandas as pd
+import tempfile
+import io
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/email_log_ol'
@@ -58,18 +62,15 @@ def logout():
 
 @app.route('/fetch')
 def fetch_and_log():
-    print(f"Session: {session}")  # Debug session contents
+    print(f"Session: {session}")
     if not session.get('access_token'):
-        return jsonify({"error": "Not authenticated. Please login via /login"}), 401
+        return redirect('/login')
     
     try:
         fetch_result = fetch_emails('messages')
         update_result = update_sent_times_from_replies()
-        return jsonify({
-            "message": "Emails fetched and logged to DB",
-            "fetch_result": fetch_result,
-            "update_result": update_result
-        })
+        print(f"Fetch result: {fetch_result}, Update result: {update_result}")
+        return redirect('/dashboard')
     except Exception as e:
         return jsonify({"error": f"Failed to fetch emails: {str(e)}"}), 500
 
@@ -83,58 +84,77 @@ def fetch_emails(folder, save_to_db=True):
         "Content-Type": "application/json"
     }
 
-    url = f"{GRAPH_API_ENDPOINT}/me/{folder}?$top=10&$select=subject,sender,from,toRecipients,receivedDateTime,sentDateTime,conversationId"
+    # Fetch all unread emails with pagination
+    url = f"{GRAPH_API_ENDPOINT}/me/{folder}?$top=10&$filter=isRead eq false&$select=subject,sender,from,toRecipients,receivedDateTime,sentDateTime,conversationId"
     ist = pytz.timezone('Asia/Kolkata')
+    all_emails = []
 
     try:
-        response = requests.get(url, headers=headers)
-        if response.status_code == 401:
-            refresh_token = session.get('refresh_token')
-            if refresh_token:
-                try:
-                    new_token_data = refresh_access_token(refresh_token)
-                    session['access_token'] = new_token_data['access_token']
-                    session['refresh_token'] = new_token_data.get('refresh_token')
-                    headers["Authorization"] = f"Bearer {new_token_data['access_token']}"
-                    response = requests.get(url, headers=headers)
-                except Exception as e:
-                    return {"error": f"Token refresh failed: {str(e)}"}, 401
-            else:
-                return {"error": "No refresh token available. Please re-authenticate via /login"}, 401
+        while url:
+            response = requests.get(url, headers=headers)
+            if response.status_code == 401:
+                refresh_token = session.get('refresh_token')
+                if refresh_token:
+                    try:
+                        new_token_data = refresh_access_token(refresh_token)
+                        session['access_token'] = new_token_data['access_token']
+                        session['refresh_token'] = new_token_data.get('refresh_token')
+                        headers["Authorization"] = f"Bearer {new_token_data['access_token']}"
+                        response = requests.get(url, headers=headers)
+                    except Exception as e:
+                        return {"error": f"Token refresh failed: {str(e)}"}, 401
+                else:
+                    return {"error": "No refresh token available. Please re-authenticate via /login"}, 401
 
-        if response.status_code != 200:
-            return {"error": f"Failed to fetch emails: {response.text}"}, response.status_code
+            if response.status_code != 200:
+                return {"error": f"Failed to fetch emails: {response.text}"}, response.status_code
 
-        emails = response.json().get("value", [])
-        for email in emails:
-            message_id = email.get("id")
-            thread_id = email.get("conversationId")
-            subject = email.get("subject", "No Subject")
-            sender = email.get("from", {}).get("emailAddress", {}).get("address", "Unknown Sender")
-            recipient_list = [r['emailAddress']['address'] for r in email.get("toRecipients", [])]
-            recipients = ", ".join(recipient_list) if recipient_list else "No Recipients"
-            received_time = email.get("receivedDateTime")
-            parsed_time = parser.isoparse(received_time).astimezone(ist) if received_time else None
+            data = response.json()
+            emails = data.get("value", [])
+            all_emails.extend(emails)
 
-            if save_to_db:
-                existing = EmailLogOl.query.filter_by(message_id=message_id).first()
-                if not existing:
-                    email_log_ol = EmailLogOl(
-                        message_id=message_id,
-                        thread_id=thread_id,
-                        sender=sender,
-                        recipient=recipients,
-                        subject=subject,
-                        received_time=parsed_time,
-                        source=folder
-                    )
-                    db.session.add(email_log_ol)
-                    db.session.commit()
+            for email in emails:
+                message_id = email.get("id")
+                thread_id = email.get("conversationId")
+                subject = email.get("subject", "No Subject")
+                sender = email.get("from", {}).get("emailAddress", {}).get("address", "Unknown Sender")
+                recipient_list = [r['emailAddress']['address'] for r in email.get("toRecipients", [])]
+                recipients = ", ".join(recipient_list) if recipient_list else "No Recipients"
+                received_time = email.get("receivedDateTime")
+                parsed_time = parser.isoparse(received_time).astimezone(ist) if received_time else None
 
-        return {"message": f"Successfully fetched {len(emails)} emails from {folder}"}
+                if save_to_db:
+                    existing = EmailLogOl.query.filter_by(message_id=message_id).first()
+                    if not existing:
+                        email_log_ol = EmailLogOl(
+                            message_id=message_id,
+                            thread_id=thread_id,
+                            sender=sender,
+                            recipient=recipients,
+                            subject=subject,
+                            received_time=parsed_time,
+                            source=folder
+                        )
+                        db.session.add(email_log_ol)
+                        db.session.commit()
+
+            url = data.get("@odata.nextLink")  # Get next page URL, if any
+
+        return {"message": f"Successfully fetched {len(all_emails)} unread emails from {folder}"}
     except Exception as e:
         return {"error": f"Error fetching emails: {str(e)}"}, 500
-
+@app.route('/dashboard')
+def dashboard():
+    if not session.get('access_token'):
+        return redirect('/login')
+    
+    try:
+        # Fetch all entries from EmailLogOl
+        emails = EmailLogOl.query.all()
+        return render_template('dashboard.html', emails=emails)
+    except Exception as e:
+        return jsonify({"error": f"Failed to load dashboard: {str(e)}"}), 500
+    
 def update_sent_times_from_replies():
     token = session.get('access_token')
     if not token:
@@ -195,6 +215,48 @@ def update_sent_times_from_replies():
         return {"message": "Sent times updated successfully"}
     except Exception as e:
         return {"error": f"Error updating sent times: {str(e)}"}, 500
-
+@app.route('/download_excel')
+def download_excel():
+    if not session.get('access_token'):
+        return redirect('/login')
+    
+    try:
+        # Fetch all entries from EmailLogOl
+        emails = EmailLogOl.query.all()
+        
+        # Prepare data for Excel
+        data = []
+        for email in emails:
+            data.append({
+                'ID': email.id,
+                'Message ID': email.message_id,
+                'Thread ID': email.thread_id or 'N/A',
+                'Sender': email.sender,
+                'Recipient': email.recipient,
+                'Subject': email.subject,
+                'Received Time': email.received_time.strftime('%Y-%m-%d %H:%M:%S %Z') if email.received_time else 'N/A',
+                'Sent Time': email.sent_time.strftime('%Y-%m-%d %H:%M:%S %Z') if email.sent_time else 'Not Replied',
+                'Source': email.source or 'N/A'
+            })
+        
+        # Create DataFrame
+        df = pd.DataFrame(data)
+        
+        # Write to BytesIO buffer
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Email Log')
+        output.seek(0)
+        
+        # Send the file
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name='email_log_ol.xlsx',
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    
+    except Exception as e:
+        return jsonify({"error": f"Failed to generate Excel file: {str(e)}"}), 500
 if __name__ == "__main__":
     app.run(debug=True)
