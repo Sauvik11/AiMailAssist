@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Tracker Analytics Dashboard</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .stat-card {
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+            background-color: #f9fafb;
+        }
+        .stat-card-link {
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-bold mb-6 text-gray-800">Email Tracker Analytics Dashboard</h1>
+        <div class="mb-6 flex flex-wrap gap-4">
+            <a href="/fetch" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded">Fetch New Emails</a>
+            <a href="/download_excel" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded">Download as Excel</a>
+            <a href="/dashboard" class="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-2 px-4 rounded">View Detailed Table</a>
+            <a href="/logout" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded">Logout</a>
+        </div>
+        <!-- Row 1: Total Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Total Emails Received -->
+            <a href="/dashboard?filter_type=total_received" class="stat-card-link">
+                <div class="stat-card bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-700">Total Emails Received</h2>
+                    <p class="text-3xl font-bold text-blue-600 mt-2">{{ stats.total_received }}</p>
+                    <p class="text-sm text-gray-500 mt-1">All time</p>
+                </div>
+            </a>
+            <!-- Total Replied To -->
+            <a href="/dashboard?filter_type=total_replied" class="stat-card-link">
+                <div class="stat-card bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-700">Total Emails Responded To</h2>
+                    <p class="text-3xl font-bold text-purple-600 mt-2">{{ stats.total_replied }}</p>
+                    <p class="text-sm text-gray-500 mt-1">All time</p>
+                </div>
+            </a>
+            <!-- Total Not Replied -->
+            <a href="/dashboard?filter_type=total_not_replied" class="stat-card-link">
+                <div class="stat-card bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-700">Total Emails in Queue</h2>
+                    <p class="text-3xl font-bold text-red-600 mt-2">{{ stats.total_not_replied }}</p>
+                    <p class="text-sm text-gray-500 mt-1">All time</p>
+                </div>
+            </a>
+        </div>
+        <!-- Row 2: Received Daily -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <!-- Emails Received Today -->
+            <a href="/dashboard?filter_type=received_today&date=2025-06-16" class="stat-card-link">
+                <div class="stat-card bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-700">Received Today</h2>
+                    <p class="text-3xl font-bold text-green-600 mt-2">{{ stats.received_today }}</p>
+                    <p class="text-sm text-gray-500 mt-1">June 16, 2025</p>
+                </div>
+            </a>
+            <!-- Emails Received Yesterday -->
+            <a href="/dashboard?filter_type=received_yesterday&date=2025-06-15" class="stat-card-link">
+                <div class="stat-card bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-700">Emails Received (1 Day Ago)</h2>
+                    <p class="text-3xl font-bold text-green-600 mt-2">{{ stats.received_yesterday }}</p>
+                    <p class="text-sm text-gray-500 mt-1">June 15, 2025</p>
+                </div>
+            </a>
+            <!-- Emails Received Day Before -->
+            <a href="/dashboard?filter_type=received_day_before&date=2025-06-14" class="stat-card-link">
+                <div class="stat-card bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-700">Emails Received (2 Day Ago)</h2>
+                    <p class="text-3xl font-bold text-green-600 mt-2">{{ stats.received_day_before }}</p>
+                    <p class="text-sm text-gray-500 mt-1">June 14, 2025</p>
+                </div>
+            </a>
+        </div>
+        <!-- Row 3: Replied Daily -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Replied to Today -->
+            <a href="/dashboard?filter_type=replied_today&date=2025-06-16" class="stat-card-link">
+                <div class="stat-card bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-700">Emails Sent Today</h2>
+                    <p class="text-3xl font-bold text-purple-600 mt-2">{{ stats.replied_today }} / {{ stats.received_today }}</p>
+                    <p class="text-sm text-gray-500 mt-1">For today</p>
+                </div>
+            </a>
+            <!-- Replied to Yesterday -->
+            <a href="/dashboard?filter_type=replied_yesterday&date=2025-06-15" class="stat-card-link">
+                <div class="stat-card bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-700">Emails Sent (1 Day Ago)</h2>
+                    <p class="text-2xl font-bold text-purple-600 mt-2">{{ stats.replied_yesterday }} / {{ stats.received_yesterday }}</p>
+                    <p class="text-sm text-gray-500 mt-1">For yesterday</p>
+                </div>
+            </a>
+            <!-- Replied to Day Before -->
+            <a href="/dashboard?filter_type=replied_day_before&date=2025-06-14" class="stat-card-link">
+                <div class="stat-card bg-white shadow-md rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-gray-700">Emails Sent (2 Day Ago)</h2>
+                    <p class="text-2xl font-bold text-purple-600 mt-2">{{ stats.replied_day_before }} / {{ stats.received_day_before }}</p>
+                    <p class="text-sm text-gray-500 mt-1">For day before</p>
+                </div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

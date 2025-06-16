@@ -3,15 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Email Tracker Dashboard</title>
+    <title>Email Tracker Detailed Dashboard</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- DataTables CSS CDN -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <!-- DataTables Responsive CSS CDN -->
+    <link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
     <!-- jQuery CDN -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Moment.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <!-- DataTables JS CDN -->
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <!-- DataTables Responsive JS CDN -->
+    <script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+    <!-- DataTables Datetime Plugin CDN -->
+    <script src="https://cdn.datatables.net/datetime/1.5.3/js/dataTables.dateTime.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -20,66 +28,85 @@
             max-width: 100%;
             overflow-x: auto;
         }
+        /* Narrow columns for Message ID and Thread ID */
+        .narrow-column {
+            width: 100px !important;
+            max-width: 100px !important;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        /* Ensure table fits within viewport */
+        #emailTable th, #emailTable td {
+            font-size: 0.875rem; /* Smaller text for compactness */
+        }
+        /* Wider columns for key fields */
+        .subject-column {
+            width: 20% !important;
+        }
+        .sender-column, .recipient-column {
+            width: 15% !important;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
     <div class="container mx-auto p-6">
-        <h1 class="text-3xl font-bold mb-6 text-gray-800">Email Tracker Dashboard</h1>
-        <div class="mb-4">
+        <h1 class="text-3xl font-bold mb-4 text-gray-800">Email Tracker Detailed Dashboard</h1>
+        <h2 class="text-xl font-semibold mb-4 text-gray-600">{{ filter_label }}</h2>
+        <div class="mb-4 flex flex-wrap gap-2">
+            <a href="/analytics_dash" class="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded">Back to Summary</a>
             <a href="/fetch" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded">Fetch New Emails</a>
-            <a href="/download_excel" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded ml-2">Download as Excel</a>
-            <a href="/logout" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded ml-2">Logout</a>
+            <a href="/download_excel" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded">Download as Excel</a>
+            <a href="/logout" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded">Logout</a>
+            <button id="showUnreplied" class="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold py-2 px-4 rounded">Show Unreplied Emails</button>
+            <button id="clearFilters" class="bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded">Clear Filters</button>
         </div>
         <div class="table-container bg-white shadow-md rounded-lg">
-            <table id="emailTable" class="min-w-full divide-y divide-gray-200">
+            <table id="emailTable" class="min-w-full divide-y divide-gray-200 display nowrap" style="width:100%">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thread ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sender</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Recipient</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sender-column">Sender</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider recipient-column">Recipient</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider subject-column">Subject</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Received Time</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sent Time</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Replied At</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reply Subject</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reply Sender</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Replied Message ID</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Is Invoice</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Number</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Date</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Amount</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider narrow-column">Thread ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider narrow-column">Message ID</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     {% for email in emails %}
                     <tr>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ email.id }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ email.message_id }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ email.thread_id or 'N/A' }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-900">{{ email.sender }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-900">{{ email.recipient }}</td>
-                        <td class="px-6 py-4 text-sm text-gray-900">{{ email.subject }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900 sender-column">{{ email.sender }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900 recipient-column">{{ email.recipient }}</td>
+                        <td class="px-6 py-4 text-sm text-gray-900 subject-column">{{ email.subject }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                             {{ email.received_time.strftime('%Y-%m-%d %H:%M:%S %Z') if email.received_time else 'N/A' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ email.sent_time.strftime('%Y-%m-%d %H:%M:%S %Z') if email.sent_time else 'Not Replied' }}
+                            {{ email.replied_at.strftime('%Y-%m-%d %H:%M:%S %Z') if email.replied_at else 'Not Replied' }}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-900">
+                            {{ email.reply_subject or 'N/A' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ email.reply_sender or 'N/A' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ email.replied_message_id or 'N/A' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ email.source or 'N/A' }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ 'Yes' if email.is_invoice else 'No' }}
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 narrow-column" title="{{ email.thread_id or 'N/A' }}">
+                            {{ (email.thread_id[:10] + '...') if email.thread_id and email.thread_id|length > 10 else (email.thread_id or 'N/A') }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ email.invoice_details.get('invoice_number', 'N/A') if email.is_invoice else 'N/A' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ email.invoice_details.get('invoice_date', 'N/A') if email.is_invoice else 'N/A' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ email.invoice_details.get('total_amount', 'N/A') if email.is_invoice else 'N/A' }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {{ email.invoice_details.get('vendor', 'N/A') if email.is_invoice else 'N/A' }}
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 narrow-column" title="{{ email.message_id }}">
+                            {{ email.message_id[:10] + '...' if email.message_id|length > 10 else email.message_id }}
                         </td>
                     </tr>
                     {% endfor %}
@@ -90,14 +117,47 @@
 
     <script>
         $(document).ready(function() {
-            $('#emailTable').DataTable({
+            var table = $('#emailTable').DataTable({
                 "pageLength": 10,
-                "order": [[6, "desc"]], // Sort by Received Time (column 6) descending
+                "order": [[4, "desc"]], // Sort by Received Time (column 4) descending
+                "autoWidth": false, // Disable auto width to use custom widths
+                "responsive": true, // Enable responsive design
                 "columnDefs": [
-                    { "type": "date", "targets": [6, 7, 11] } // Ensure proper date sorting
+                    {
+                        "targets": [4, 5], // Received Time (4) and Replied At (5)
+                        "render": function(data, type, row) {
+                            if (type === 'sort' || type === 'type') {
+                                return data === 'N/A' || data === 'Not Replied' ? '' : moment(data, 'YYYY-MM-DD HH:mm:ss Z').format('YYYY-MM-DD HH:mm:ss');
+                            }
+                            return data;
+                        }
+                    },
+                    {
+                        "targets": [10, 11], // Thread ID (10) and Message ID (11)
+                        "className": "narrow-column"
+                    },
+                    {
+                        "targets": [1], // Sender
+                        "className": "sender-column"
+                    },
+                    {
+                        "targets": [2], // Recipient
+                        "className": "recipient-column"
+                    },
+                    {
+                        "targets": [3], // Subject
+                        "className": "subject-column"
+                    }
                 ]
+            });
+
+            $('#showUnreplied').click(function() {
+                table.column(5).search('Not Replied').draw(); // Replied At (column 5)
+            });
+
+            $('#clearFilters').click(function() {
+                table.search('').columns().search('').draw();
             });
         });
     </script>
 </body>
-</html>

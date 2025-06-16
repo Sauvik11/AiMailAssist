@@ -8,14 +8,14 @@ load_dotenv()
 CLIENT_ID = os.getenv("ol_CLIENT_ID")
 CLIENT_SECRET = os.getenv("ol_CLIENT_SECRET")
 TENANT_ID = os.getenv("ol_TENANT_ID")
-REDIRECT_URI = os.getenv("ol_REDIRECT_URI")
+REDIRECT_URI = os.getenv("REDIRECT_URI")
 AUTHORITY = os.getenv("ol_AUTHORITY")
 SCOPE = os.getenv("SCOPE")  # e.g., "https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access"
 
 # Filter out reserved scopes for MSAL
 RESERVED_SCOPES = ['openid', 'offline_access', 'profile']
 SCOPES = [scope for scope in SCOPE.split() if scope not in RESERVED_SCOPES]  # e.g., ["https://graph.microsoft.com/Mail.Read", "https://graph.microsoft.com/Mail.Send", "https://graph.microsoft.com/User.Read"]
-
+print(CLIENT_SECRET,"client secret1")
 def get_auth_url():
     params = {
         "client_id": CLIENT_ID,
@@ -28,7 +28,11 @@ def get_auth_url():
 
 def get_token(code=None):
     print(f"get_token called with code: {code}")  # Debug
-    app = msal.PublicClientApplication(CLIENT_ID, authority=AUTHORITY)
+    app = msal.ConfidentialClientApplication(
+        client_id=CLIENT_ID,
+        client_credential=CLIENT_SECRET,
+        authority=AUTHORITY
+    )
     
     try:
         if code:
